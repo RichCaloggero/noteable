@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>test</title>
+</head>
+<body>
+<h1>Noter</h1>
+
+<label>highlight: <select id="highlighter" accesskey="h">
+<option value="strong">strong</option>
+<option value="em">emphasis</option>
+<option value="span">none</option>
+</select>
+</label>
+
+<label>markers for screen reader users: <select id="markers" accesskey="m"></select>
+</label>
+
+<br><label>enable editing: <input type="checkbox" id="enable-editing"></label>
+
+<br><hr><div id="editor" class="container">
+
+<p id="paragraph">I should be able to select text from this paragraph.</p>
+
+<p id="paragraph2">... or this one ...</p>
+
+
+<ul id="list"><li id="item1">
+chocolate
+</li><li id="item2">
+<p id="paragraph3">vanilla</p>
+</li><li id="item3">
+strawberry
+</li></ul>
+</div>
+
+<output id="selected-text"></output>
+
+<div role="region" aria-label="log">
+<output id="log"></output>
+</div>
+<button>--end--</button>
+
+<script>
+const markers = [
+["{{", "}}"],
+["[[", "]]"],
+["[note]", "[end note]"],
+["", ""]
+];
+
+const highlighter = document.querySelector("#highlighter");
+const markerList = initializeMarkerList(document.querySelector("#markers"), markers);
+const editor = initializeEditor(document.querySelector("#editor"), document.querySelector("#enable-editing"), highlighter, markerList);
+
+highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
+markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
+
+const log = document.querySelector("#log");
+
+
+function _getSelection (s, highlighter, markers) {
+if (not(s)) return;
+
+if (s.anchorNode !== s.focusNode) {
+s.extend(s.anchorNode, s.anchorNode.textContent.length-1);
+} // if
+
+if (s.anchorNode.nodeType !== 3) return; // only operate on text nodes
+
+if (s.toString().length === 0) return;
+
+const note = createNoteFromSelection(s); // text node containing the text we selected
+s.removeAllRanges();
+const newNote = createNote(note.textContent, highlighter, markers); // node containing start and end markers, along with a span containing the text we selected
+note.parentElement.replaceChild(newNote, note); // integrate into the DOM
+return newNote;
+} // _getSelection
+
+function createNoteFromSelection (s) {
+const node = s.anchorNode;
+const start = s.anchorOffset;
+const end = s.focusOffset;
+//log.insertAdjacentHTML("beforeEnd", `<p>initial: ${start}, ${end}, ${node.textContent.length}</p>`);
+
+if (end < node.textContent.length-1) {
+node.splitText(end);
+//log.insertAdjacentHTML("beforeEnd", `<p>end split: ${start}, ${end}, ${node.textContent.length}</p>`);
+} // if
+
+const text = start > 0?
+node.splitText(start) : node;
+//log.insertAdjacentHTML("beforeEnd", `<p>after text defined: ${start}, ${end}, ${node.textContent.length}</p>`);
+
+//log.insertAdjacentHTML("beforeEnd", `<p>text: ${text.textContent}</p><hr>`);
+
+return text; // possibly new text node containing only the selected text
+} // createNoteFromSelection
+
+function createNote (text, highlighter, markers) {
+const note = document.createElement(highlighter);
+note.className = "note";
+note.insertAdjacentHTML("beforeEnd",
+`<span class="start-marker">${markers[0]}</span>
+<span class="text" tabindex="0">${text}</span>
+<span class="end-marker">${markers[1]}</span>`);
+
+return note;
+} // createNote
+
+function initializeMarkerList (list, markers) {
+for (let i=0; i<markers.length; i++) {
+const display = markers[i][0]? markers[i].toString() : "none";
+const option = document.createElement("option");
+option.textContent = display;
+list.add(option);
+} // for
+
+return list;
+} // initializeMarkerList
+
+function initializeEditor (editor, enabler, highlighter, markerList) {
+enabler.addEventListener("change", e => {
+if (e.target.checked) enableEditor(editor);
+else disableEditor(editor);
+});
+
+//editor.addEventListener("click", e => {
+//}); // add note
+
+editor.addEventListener("keydown", e => {
+switch (e.key) {
+case "ArrowLeft": case "ArrowRight":
+case "ArrowUp": case "ArrowDown":
+case "Home": case "End":
+case "Tab":
+return true; break;
+
+case "Enter": {
+if (e.altKey && e.target.classList.contains("text")) {
+getProperties(e.target.parentElement);
+} else {
+const note = _getSelection(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+if (note) {
+note.querySelector(".text").focus();
+} // if
+} // if
+} break;
+
+case "Escape": if(editor.hasAttribute("contenteditable")) {
+disableEditor(editor);
+enabler.checked = false;
+enabler.focus();
+} // if
+break;
+} // switch
+
+e.preventDefault();
+}); // attempt to change
+
+if (enabler.checked) enableEditor(editor);
+else disableEditor(editor);
+
+return editor;
+} // initializeEditor
+
+
+function enableEditor (editor) {
+editor.setAttribute("contenteditable", "");
+editor.querySelectorAll(".note .text")
+.forEach(text => text.tabIndex = 0);
+editor.focus();
+} // enableEditor
+
+function disableEditor (editor) {
+editor.removeAttribute("contenteditable");
+editor.querySelectorAll(".note .text")
+.forEach(text => text.removeAttribute("tabindex"));
+} // disableEditor
+
+function getProperties (note) {
+
+let dialog = document.querySelector("dialog.noteable-properties");
+if (not(dialog)) {
+dialog = document.createElement("dialog");
+dialog.className = "noteable-properties";
+dialog.addEventListener("close", e => {
+if (dialog.returnValue === "ok") addProperties(note, dialog);
+}); // submit
+document.body.appendChild(dialog);
+} // if
+
+dialog.innerHTML = createDialogContents({
+ref: note.id,
+fields: [
+["text"], ["user"]
+]
+}); // createDialog
+
+
+dialog.showModal();
+} // getProperties
+
+function addProperties (note, dialog) {
+console.log("addProperties: ", note, dialog);
+} // addProperties
+
+function changeAllHighlighters (editor, tagName) {
+editor.querySelectorAll(".note").forEach(note => {
+const newNote = document.createElement(tagName);
+newNote.innerHTML = note.innerHTML;
+newNote.className = note.className;
+note.replaceWith(newNote);
+}); // forEach note
+} // changeAllHighlighters
+
+function changeAllMarkers (editor, markers) {
+editor.querySelectorAll(".note").forEach(note => {
+note.querySelector(".start-marker").textContent = markers[0];
+note.querySelector(".end-marker").textContent = markers[1];
+}); // forEach note
+} // changeAllMarkers
+
+function not(x) {return !x;}
+
+function createDialogContents (options) {
+if (not(options)) return "";
+
+return `<header>
+<h2>Properties</h2>
+</header>
+
+<form method="dialog">
+${options.fields.map(fd => {
+const name = fd[0];
+const label = fd[1] || name;
+const initialValue = fd[2] || "";
+
+return `<div class="form-field" id="${name}">
+<label>${label}: <input type="text" name="${name}" value="${initialValue.toString()}">
+</label></div>\n
+`;
+}).join("")}
+<div >
+<button type="submit" value="ok">OK</button>
+<button type="submit" value="cancel">Cancel</button>
+</div>
+</form>
+`; // html
+
+} // createDialog
+
+</script>
+
+
+</body>
+</html>
