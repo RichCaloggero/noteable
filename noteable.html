@@ -138,9 +138,9 @@ case "Tab":
 return true; break;
 
 case "Enter": {
-if (e.altKey && e.target.classList.contains("text")) {
-getProperties(e.target.parentElement);
-} else {
+const isNote = e.target && e.target.classList.contains("text");
+if (isNote && e.altKey) getProperties(e.target.parentElement);
+else {
 const note = _getSelection(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
 if (note) {
 note.querySelector(".text").focus();
@@ -192,19 +192,21 @@ document.body.appendChild(dialog);
 } // if
 
 dialog.innerHTML = createDialogContents({
-ref: note.id,
 fields: [
-["text"], ["user"]
+["text", "annotation", note.dataset.text || ""],
+["user", "user", note.dataset.user || ""]
 ]
 }); // createDialog
-
 
 dialog.showModal();
 } // getProperties
 
 function addProperties (note, dialog) {
-console.log("addProperties: ", note, dialog);
+const form = dialog.querySelector("form");
+note.dataset.user = form.user.value;
+note.dataset.text = form.text.value;
 } // addProperties
+
 
 function changeAllHighlighters (editor, tagName) {
 editor.querySelectorAll(".note").forEach(note => {
