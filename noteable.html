@@ -177,7 +177,8 @@ e.preventDefault();
 } // editorKeyboardHandler
 
 function enableEditor (editor) {
-editor.setAttribute("contenteditable", "");
+editor.setAttribute("contenteditable", "true");
+editor.setAttribute("role", "textarea");
 editor.querySelectorAll(".note .text")
 .forEach(text => text.tabIndex = 0);
 editor.focus();
