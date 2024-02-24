@@ -6,6 +6,7 @@
 </head>
 <body>
 <h1>Noter</h1>
+<output></output>
 
 <label>highlight: <select id="highlighter" accesskey="h">
 <option value="strong">strong</option>
@@ -35,13 +36,7 @@ strawberry
 </li></ul>
 </div>
 
-<output id="selected-text"></output>
-
-<div role="region" aria-label="log">
-<output id="log"></output>
-</div>
-<button>--end--</button>
-
+<script src="idbKeyval.umd.js"></script>
 <script>
 const markers = [
 ["{{", "}}"],
@@ -56,11 +51,11 @@ const editor = initializeEditor(document.querySelector("#editor"), document.quer
 
 highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
 markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
+statusMessage("Ready.");
 
-const log = document.querySelector("#log");
 
 
-function _getSelection (s, highlighter, markers) {
+function createAnnotation (s, highlighter, markers) {
 if (not(s)) return;
 
 if (s.anchorNode !== s.focusNode) {
@@ -76,7 +71,15 @@ s.removeAllRanges();
 const newNote = createNote(note.textContent, highlighter, markers); // node containing start and end markers, along with a span containing the text we selected
 note.parentElement.replaceChild(newNote, note); // integrate into the DOM
 return newNote;
-} // _getSelection
+} // createAnnotation
+
+function deleteAnnotation (note) {
+const parent = note.parentElement;
+const textNode = document.createTextNode(note.querySelector(".text").textContent);
+parent.replaceChild(textNode, note);
+parent.normalize();
+persist(editor, idbKeyval);
+} // deleteAnnotation
 
 function createNoteFromSelection (s) {
 const node = s.anchorNode;
@@ -126,24 +129,38 @@ if (e.target.checked) enableEditor(editor);
 else disableEditor(editor);
 });
 
-//editor.addEventListener("click", e => {
-//}); // add note
+restore(idbKeyval, editor);
 
-editor.addEventListener("keydown", e => {
+editor.addEventListener("keydown", editorKeyboardHandler);
+
+if (enabler.checked) enableEditor(editor);
+else disableEditor(editor);
+
+return editor;
+} // initializeEditor
+
+function editorKeyboardHandler (e) {
 switch (e.key) {
+// allow these keys to have their default behavior
 case "ArrowLeft": case "ArrowRight":
 case "ArrowUp": case "ArrowDown":
 case "Home": case "End":
-case "Tab":
+case "Tab": case "F6":
 return true; break;
+
+case "Delete": {
+const isNote = e.target && e.target.classList.contains("text");
+if (isNote) deleteAnnotation(e.target.parentElement);
+} break;
 
 case "Enter": {
 const isNote = e.target && e.target.classList.contains("text");
 if (isNote && e.altKey) getProperties(e.target.parentElement);
 else {
-const note = _getSelection(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+const note = createAnnotation(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
 if (note) {
 note.querySelector(".text").focus();
+persist(editor, idbKeyval);
 } // if
 } // if
 } break;
@@ -157,14 +174,7 @@ break;
 } // switch
 
 e.preventDefault();
-}); // attempt to change
-
-if (enabler.checked) enableEditor(editor);
-else disableEditor(editor);
-
-return editor;
-} // initializeEditor
-
+} // editorKeyboardHandler
 
 function enableEditor (editor) {
 editor.setAttribute("contenteditable", "");
@@ -205,8 +215,29 @@ function addProperties (note, dialog) {
 const form = dialog.querySelector("form");
 note.dataset.user = form.user.value;
 note.dataset.text = form.text.value;
+persist(editor, idbKeyval);
 } // addProperties
 
+async function persist (editor, db) {
+try {
+db.set("html", editor.innerHTML);
+statusMessage("Save complete.");
+} catch (e) {
+statusMessage(`Database error: ${e}`);
+} // try
+} // persist
+
+async function restore (db, editor) {
+try {
+const html = await db.get("html");
+if (html) {
+editor.innerHTML = html;
+statusMessage("Restore complete.");
+} // if
+} catch (e) {
+statusMessage(`database error: ${e}`);
+} // try
+} // restore
 
 function changeAllHighlighters (editor, tagName) {
 editor.querySelectorAll(".note").forEach(note => {
@@ -252,6 +283,10 @@ return `<div class="form-field" id="${name}">
 `; // html
 
 } // createDialog
+
+function statusMessage (text) {
+document.querySelector("output").textContent = text;
+} // statusMessage
 
 </script>
 
