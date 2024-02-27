@@ -123,6 +123,7 @@ editor.insertAdjacentElement("afterBegin", editorControls);
 const highlighter = editorControls.querySelector(".highlighter");
 const markerList = initializeMarkerList(editorControls.querySelector(".marker-list"), markers);
 const enabler = editorControls.querySelector(".enable-editing")
+const editorContents = editor.querySelector(".contents");
 
 
 enabler.addEventListener("change", e => {
@@ -132,7 +133,7 @@ else disableEditor(editor);
 
 restoreEditorContents(idbKeyval, editor);
 
-editor.addEventListener("keydown", editorKeyboardHandler);
+editorContents.addEventListener("keydown", editorKeyboardHandler);
 
 highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
 markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
