@@ -116,6 +116,7 @@ return list;
 } // initializeMarkerList
 
 function initializeEditor (editor, markers) {
+editor.classList.add("editor");
 editor.dataset.initialContents = editor.innerHTML;
 editor.innerHTML = `<div class="contents">
 ${editor.innerHTML}
@@ -150,7 +151,7 @@ else disableEditor(editor);
 return editor;
 
 function editorKeyboardHandler (e) {
-console.log("key: ", e.key, e.altKey);
+//console.log("key: ", e.key, e.altKey);
 switch (e.key) {
 // allow these keys to have their default behavior
 case "ArrowLeft": case "ArrowRight":
@@ -159,15 +160,14 @@ case "Home": case "End":
 case "Tab": case "F6":
 return true; break;
 
-case "Delete": {
-const isNote = e.target && e.target.classList.contains("text");
-if (isNote) deleteAnnotation(e.target.parentElement);
-} break;
+case "Delete": 
+if (isNote(e.target)) deleteAnnotation(e.target.parentElement);
+break;
 
-case "Enter": {
-const isNote = e.target && e.target.classList.contains("text");
-if (isNote && e.altKey) getProperties(e.target.parentElement);
-else {
+case "Enter":
+if (isNote(e.target) && e.altKey) {
+getProperties(e.target.parentElement);
+}else {
 const note = createAnnotation(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
 if (note) {
 note.querySelector(".text").focus();
@@ -175,7 +175,6 @@ saveEditorContents(idbKeyval, editor);
 } // if
 } // if
 break;
-} // case "Enter"
 
 case "Escape": if(editorContents.hasAttribute("contenteditable")) {
 disableEditor(editor);
@@ -189,13 +188,21 @@ e.preventDefault();
 } // editorKeyboardHandler
 
 function editorClickHandler (e) {
-console.log("synthesizing enter keydown: ", e.altKey);
+console.log(e);
+if (not(e.target.matches(".editor .contents *"))) return true;
 e.preventDefault();
 e.stopImmediatePropagation();
 e.stopPropagation();
 
-e.key = "Enter";
-editorKeyboardHandler(e);
+if (isNote(e.target) && e.altKey) {
+getProperties(e.target.parentElement);
+}else {
+const note = createAnnotation(document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+if (note) {
+note.querySelector(".text").focus();
+saveEditorContents(idbKeyval, editor);
+} // if
+} // if
 } // editorClickHandler
 
 } // initializeEditor
@@ -244,6 +251,12 @@ note.dataset.user = form.user.value;
 note.dataset.text = form.text.value;
 saveEditorContents(idbKeyval, editor);
 } // addProperties
+
+function isNote (element) {
+//return element && element.classList.contains("text") && element.parentElement.classList.contains("note");
+return element.matches(".note .text");
+} // isNote
+
 
 function saveInitialContents (editor) {
 editor.dataset.initialContent = editor.innerHTML;
