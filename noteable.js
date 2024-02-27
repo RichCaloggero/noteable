@@ -44,16 +44,21 @@ return controls;
 
 function createAnnotation (s, highlighter, markers) {
 if (not(s)) return;
-
-if (s.anchorNode !== s.focusNode) {
-s.extend(s.anchorNode, s.anchorNode.textContent.length-1);
+let {anchorNode, anchorOffset, focusNode, focusOffset} = s;
+if (isBefore(focusNode, anchorNode)) {
+[anchorNode, focusNode] = [focusNode, anchorNode]; // reverse them
 } // if
 
-if (s.anchorNode.nodeType !== 3) return; // only operate on text nodes
+if (anchorNode !== focusNode) {
+s.extend(s.anchorNode, s.anchorNode.textContent.length-1);
+({anchorNode, focusNode} = s);
+} // if
+
+if (anchorNode.nodeType !== 3) return; // only operate on text nodes
 
 if (s.toString().length === 0) return;
 
-const note = createNoteFromSelection(s); // text node containing the text we selected
+const note = createNoteFromSelection({anchorNode, focusNode, anchorOffset, focusOffset}); // text node containing the text we selected
 s.removeAllRanges();
 const newNote = createNote(note.textContent, highlighter, markers); // node containing start and end markers, along with a span containing the text we selected
 note.parentElement.replaceChild(newNote, note); // integrate into the DOM
@@ -134,6 +139,7 @@ else disableEditor(editor);
 restoreEditorContents(idbKeyval, editor);
 
 editorContents.addEventListener("keydown", editorKeyboardHandler);
+editorContents.addEventListener("click", editorClickHandler);
 
 highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
 markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
@@ -144,6 +150,7 @@ else disableEditor(editor);
 return editor;
 
 function editorKeyboardHandler (e) {
+console.log("key: ", e.key, e.altKey);
 switch (e.key) {
 // allow these keys to have their default behavior
 case "ArrowLeft": case "ArrowRight":
@@ -167,9 +174,10 @@ note.querySelector(".text").focus();
 saveEditorContents(idbKeyval, editor);
 } // if
 } // if
-} break;
+break;
+} // case "Enter"
 
-case "Escape": if(editor.hasAttribute("contenteditable")) {
+case "Escape": if(editorContents.hasAttribute("contenteditable")) {
 disableEditor(editor);
 enabler.checked = false;
 enabler.focus();
@@ -179,6 +187,17 @@ break;
 
 e.preventDefault();
 } // editorKeyboardHandler
+
+function editorClickHandler (e) {
+console.log("synthesizing enter keydown: ", e.altKey);
+e.preventDefault();
+e.stopImmediatePropagation();
+e.stopPropagation();
+
+e.key = "Enter";
+editorKeyboardHandler(e);
+} // editorClickHandler
+
 } // initializeEditor
 
 function enableEditor (editor) {
@@ -259,7 +278,6 @@ note.querySelector(".end-marker").textContent = markers[1];
 }); // forEach note
 } // changeAllMarkers
 
-function not(x) {return !x;}
 
 function createDialogContents (options) {
 if (not(options)) return "";
@@ -313,3 +331,10 @@ statusMessage(`database error: ${e}`);
 return "";
 } // try
 } // restore
+
+function isBefore (a, b) {
+const nodes = [...document.body.querySelectorAll("*")];
+return (nodes.indexOf(a) < nodes.indexOf(b));
+} // isBefore
+
+function not (x) {return !x;}
