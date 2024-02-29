@@ -88,7 +88,7 @@ markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.ta
 
 
 editorContents.addEventListener("keydown", editorKeyboardHandler);
-//editorContents.addEventListener("mouseup", editorClickHandler);
+editorContents.addEventListener("mouseup", editorClickHandler);
 
 restoreEditorContents(idbKeyval, editor);
 
@@ -100,10 +100,12 @@ return editor;
 
 function editorKeyboardHandler (e) {
 const navigationKeys = ["arrow", "home", "end", "page", "tab",
-"f6", "alt+d", "control+l", "control+k"
+"f5", "f6", "alt+d", "control+l", "control+k"
 ];
 const problemKeys = ["arrow", "home", "end", "page"];
 
+e.stopImmediatePropagation();
+e.stopPropagation();
 const key = new Key(e).toString().toLowerCase();
 if (keyMatch(key, navigationKeys)) {
 if (e.target.matches(".note .text") && keyMatch(key, problemKeys)) e.preventDefault();
@@ -135,7 +137,7 @@ enabler.focus();
 } // editorKeyboardHandler
 
 function editorClickHandler (e) {
-console.log(e);
+//console.log(e);
 if (not(e.target.matches(".editor .contents *"))) return true;
 e.preventDefault();
 e.stopImmediatePropagation();
