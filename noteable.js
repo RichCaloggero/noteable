@@ -102,8 +102,13 @@ function editorKeyboardHandler (e) {
 const navigationKeys = ["arrow", "home", "end", "page", "tab",
 "f6", "alt+d", "control+l", "control+k"
 ];
+const problemKeys = ["arrow", "home", "end", "page"];
+
 const key = new Key(e).toString().toLowerCase();
-if (navigationKeys.find(k => key.includes(k))) return true;
+if (keyMatch(key, navigationKeys)) {
+if (e.target.matches(".note .text") && keyMatch(key, problemKeys)) e.preventDefault();
+return true;
+} // if
 
 e.preventDefault();
 if (key === "delete") {
@@ -157,7 +162,7 @@ note.querySelector(".text").focus();
 function enableEditor (editor) {
 const contents = editor.querySelector(".contents");
 contents.setAttribute("contenteditable", "true");
-contents.setAttribute("role", "textarea");
+contents.setAttribute("role", "application");
 contents.querySelectorAll(".note .text")
 .forEach(text => text.tabIndex = 0);
 contents.focus();
@@ -377,5 +382,9 @@ function isBefore (a, b) {
 const nodes = [...document.body.querySelectorAll("*")];
 return (nodes.indexOf(a) < nodes.indexOf(b));
 } // isBefore
+
+function keyMatch (keyName, keyList) {
+return keyList.find(k => keyName.includes(k));
+} // keyMatch
 
 function not (x) {return !x;}
