@@ -99,48 +99,34 @@ else disableEditor(editor);
 return editor;
 
 function editorKeyboardHandler (e) {
-//console.log("key: ", e.key, e.altKey);
-switch (e.key) {
-// allow these keys to have their default behavior
-case "ArrowLeft": case "ArrowRight":
-case "ArrowUp": case "ArrowDown":
-case "Home": case "End":
-case "F6":
+const navigationKeys = ["arrow", "home", "end", "page", "tab",
+"f6", "alt+d", "control+l", "control+k"
+];
+const key = new Key(e).toString().toLowerCase();
+if (navigationKeys.find(k => key.includes(k))) return true;
 
-
-return false;
-//e.stopPropagation();
-//e.stopImmediatePropagation();
-return true;
-
-case "Tab": return true;
-
-
-case "Delete": 
-if (isNote(e.target)) deleteAnnotation(e.target.parentElement);
-break;
-
-case "Enter":
-if (isNote(e.target) && e.altKey) {
-getProperties(e.target.parentElement);
-}else if (not(isNote(e.target))) {
-annotate(editor, document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
-} // if
-break;
-
-case "Escape": if (e.target.matches(".note .text")) {
+e.preventDefault();
+if (key === "delete") {
+if (isNote(e.target)) {
+deleteAnnotation(e.target.parentElement);
 editorContents.focus();
-} else {
-if(editorContents.hasAttribute("contenteditable")) {
+} // if
+
+} else if (key === "enter") {
+annotate(editor, document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+
+} else if (key === "alt+enter") {
+if (isNote(e.target)) getProperties(e.target.parentElement);
+
+} else if (key === "escape") {
+if (e.target.matches(".note .text")) {
+editorContents.focus();
+} else if(editorContents.hasAttribute("contenteditable")) {
 disableEditor(editor);
 enabler.checked = false;
 enabler.focus();
 } // if
 } // if
-break;
-} // switch
-
-e.preventDefault();
 } // editorKeyboardHandler
 
 function editorClickHandler (e) {
@@ -171,7 +157,7 @@ note.querySelector(".text").focus();
 function enableEditor (editor) {
 const contents = editor.querySelector(".contents");
 contents.setAttribute("contenteditable", "true");
-contents.setAttribute("role", "application");
+contents.setAttribute("role", "textarea");
 contents.querySelectorAll(".note .text")
 .forEach(text => text.tabIndex = 0);
 contents.focus();
