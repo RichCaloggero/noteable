@@ -1,4 +1,4 @@
-function noteable (editor) {
+async function noteable (editor) {
 if (not(editor) && not(editor instanceof HTMLElement)) {
 alert("noteable: argument must be an html container element (preferrably div)");
 return null;
@@ -11,7 +11,7 @@ const markers = [
 ["", ""]
 ];
 
-initializeEditor(editor, markers);
+await initializeEditor(editor, markers);
 
 statusMessage("Ready.");
 
@@ -37,7 +37,7 @@ controls.innerHTML = `<hr><div class="controls">
 
 <br><label>enable editing: <input type="checkbox" class="enable-editing" accesskey="e"></label>
 <label>enable local persistance: <input type="checkbox" class="enable-local-persistance" accesskey="l"></label>
-<!--<label>enable server storage: <input type="checkbox" class="enable-remote-persistance" accesskey="s"></label>-->
+<!--<label>enable remote persistance: <input type="checkbox" class="enable-remote-persistance" accesskey="s"></label>-->
 <button class="remove-annotations" accesskey="r">Remove annotations</button>
 </div><hr>
 `; // html
@@ -45,9 +45,12 @@ controls.innerHTML = `<hr><div class="controls">
 return controls;
 } // createEditorControls
 
-function initializeEditor (editor, markers) {
+async function initializeEditor (editor, markers) {
 editor.classList.add("editor");
 editor.dataset.initialContents = editor.innerHTML;
+
+
+if (not(await restoreEditor(idbKeyval, editor))) {
 editor.innerHTML = `<div class="contents">
 ${editor.innerHTML}
 </div>
@@ -55,46 +58,32 @@ ${editor.innerHTML}
 
 const editorControls = createEditorControls(editor);
 editor.insertAdjacentElement("afterBegin", editorControls);
+saveEditor(idbKeyval, editor);
+} // if
 
+const editorControls = editor.querySelector(".controls");
 const highlighter = editorControls.querySelector(".highlighter");
 const markerList = initializeMarkerList(editorControls.querySelector(".marker-list"), markers);
-const enabler = editorControls.querySelector(".enable-editing")
+const enableEditing = editorControls.querySelector(".enable-editing")
 const editorContents = editor.querySelector(".contents");
 const enableLocalPersistance = document.querySelector(".enable-local-persistance");
 const removeAnnotations = document.querySelector(".remove-annotations");
 
 
-enabler.addEventListener("change", e => {
-if (e.target.checked) enableEditor(editor);
-else disableEditor(editor);
-});
-
-enableLocalPersistance.addEventListener("change", e => {
-if (e.target.checked) {
-editorContents.dataset.localPersistance = "true";
-saveEditorContents(idbKeyval, editor);
-} else {
-delete editorContents.dataset.localPersistance;
-} // if
-});
-
+enableEditing.addEventListener("change", e => enableEditor(editor, e.target.checked));
+enableLocalPersistance.addEventListener("change", e => localPersistance(editor, e.target.checked));
 
 removeAnnotations.addEventListener("click", e => {
-removeAnnotations(editor);
+removeAllAnnotations(editor);
 });
 
 highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
 markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
 
-
 editorContents.addEventListener("keydown", editorKeyboardHandler);
 editorContents.addEventListener("mouseup", editorClickHandler);
 
-restoreEditorContents(idbKeyval, editor);
-
-
-if (enabler.checked) enableEditor(editor);
-else disableEditor(editor);
+enableEditor(editor, enableEditing.checked);
 
 return editor;
 
@@ -129,9 +118,8 @@ if (isNote(e.target)) getProperties(e.target.parentElement);
 if (e.target.matches(".note .text")) {
 editorContents.focus();
 } else if(editorContents.hasAttribute("contenteditable")) {
-disableEditor(editor);
-enabler.checked = false;
-enabler.focus();
+enableEditor(editor, false);
+enableEditing.focus();
 } // if
 } // if
 } // editorKeyboardHandler
@@ -155,28 +143,57 @@ annotate(editor, document.getSelection(), highlighter.value, markers[markerList.
 function annotate (editor, selection, highlight, marker) {
 const note = createAnnotation(selection, highlight, marker);
 if (note) {
-saveEditorContents(idbKeyval, editor);
+editorChanged(editor);
 note.querySelector(".text").focus();
 } // if
 } // annotate
 
 
-function enableEditor (editor) {
+function enableEditor (editor, state) {
 const contents = editor.querySelector(".contents");
+
+if (state) {
 contents.setAttribute("contenteditable", "true");
 contents.setAttribute("role", "application");
-contents.querySelectorAll(".note .text")
-.forEach(text => text.tabIndex = 0);
+makeAnnotationsFocusable(editor);
+contents.dataset.enableEditing = "true";
 contents.focus();
-} // enableEditor
 
-function disableEditor (editor) {
-const contents = editor.querySelector(".contents");
+} else {
 contents.removeAttribute("contenteditable");
 contents.removeAttribute("role");
-contents.querySelectorAll(".note .text")
-.forEach(text => text.removeAttribute("tabindex"));
+makeAnnotationsUnfocusable(editor);
+delete contents.dataset.enableEditing;
+} // if
+
+
+editorChanged(editor);
 } // disableEditor
+
+function localPersistance (editor, state) {
+console.log("localPersistance: ", editor, state);
+const contents = editor.querySelector(".contents");
+
+if (state) {
+contents.dataset.localPersistance = "true";
+
+} else {
+delete contents.dataset.localPersistance;
+} // if
+
+
+editorChanged(editor);
+} // enablePersistance
+
+function makeAnnotationsFocusable (editor) {
+editor.querySelectorAll(".contents .note .text")
+.forEach(text => text.tabIndex = 0);
+} // makeAnnotationsFocusable
+
+function makeAnnotationsUnfocusable (editor) {
+editor.querySelectorAll(".contents .note .text")
+.forEach(text => text.tabIndex = -1);
+} // makeAnnotationsUnfocusable
 
 function createAnnotation (s, highlighter, markers) {
 if (not(s)) return;
@@ -201,12 +218,17 @@ note.parentElement.replaceChild(newNote, note); // integrate into the DOM
 return newNote;
 } // createAnnotation
 
+function removeAllAnnotations (editor) {
+editor.querySelectorAll(".contents .note").forEach(note => deleteAnnotation(note));
+} // removeAllAnnotations
+
 function deleteAnnotation (note) {
+const editor = note.closest(".editor");
 const parent = note.parentElement;
 const textNode = document.createTextNode(note.querySelector(".text").textContent);
 parent.replaceChild(textNode, note);
 parent.normalize();
-saveEditorContents(idbKeyval, editor);
+editorChanged(editor);
 } // deleteAnnotation
 
 function createNoteFromSelection (s) {
@@ -278,7 +300,7 @@ function addProperties (note, dialog) {
 const form = dialog.querySelector("form");
 note.dataset.user = form.user.value;
 note.dataset.text = form.text.value;
-saveEditorContents(idbKeyval, editor);
+editorChanged(editor);
 } // addProperties
 
 function isNote (element) {
@@ -290,25 +312,47 @@ function saveInitialContents (editor) {
 editor.dataset.initialContent = editor.innerHTML;
 } // saveInitialContents
 
+function saveEditor (db, editor) {
+const contents = editor.querySelector(".contents");
+
+if (contents.dataset.localPersistance) {
+save(db, "noteable_editorContents", editor.innerHTML);
+} // if
+} // saveEditor
+
+async function restoreEditor (db, editor) {
+const html = await restore(db, "noteable_editorContents");
+if (html) {
+editor.innerHTML = html;
+const contents = editor.querySelector(".contents");
+
+enableEditor(editor, contents.dataset.enableEditing);
+editorChanged(editor, false);
+statusMessage("Restore complete.");
+return true;
+
+} else {
+return false;
+} // if
+} // restoreEditor
+
 function saveEditorContents (db, editor) {
 const contents = editor.querySelector(".contents");
+
 if (contents.dataset.localPersistance) {
-save(db, "noteable_editorControls", editor.querySelector(".controls").innerHTML);
 save(db, "noteable_editorContents", contents.innerHTML);
 } // if
 } // saveEditorContents
 
 async function restoreEditorContents (db, editor) {
 const contents = editor.querySelector(".contents");
-if (contents.dataset.localPersistance) {
-let html = await restore(db, "noteable_editorContents");
+const html = await restore(db, "noteable_editorContents");
 if (html) contents.innerHTML = html;
-
-html = await restore(db, "noteable_editorControls");
-if (html) editor.querySelector(".controls").innerHTML = html;
+console.log("restore: ", contents.dataset.enableEditing, contents.dataset.localPersistance);
+editorChanged(editor);
 
 statusMessage("Restore complete.");
-} // if
+//} // if
 } // restoreEditorContents
 
 
@@ -328,6 +372,18 @@ note.querySelector(".end-marker").textContent = markers[1];
 }); // forEach note
 } // changeAllMarkers
 
+function editorChanged (editor, save = true) {
+const contents = editor.querySelector(".contents");
+
+if (save) saveEditor (idbKeyval, editor);
+syncUI (contents.dataset.enableEditing, editor.querySelector(".controls .enable-editing"));
+syncUI (contents.dataset.localPersistance, editor.querySelector(".controls .enable-local-persistance"));
+
+} // editorChanged
+
+function syncUI (state, control) {
+control.checked = state;
+} // syncUI
 
 function createDialogContents (options) {
 if (not(options)) return "";
@@ -370,9 +426,9 @@ statusMessage(`Database error: ${e}`);
 } // try
 } // save
 
-async function restore (db, key, value) {
+async function restore (db, key) {
 try {
-const value = db.get(key);
+const value = await db.get(key);
 return value || "";
 } catch (e) {
 statusMessage(`database error: ${e}`);
