@@ -220,6 +220,7 @@ return newNote;
 
 function removeAllAnnotations (editor) {
 editor.querySelectorAll(".contents .note").forEach(note => deleteAnnotation(note));
+idbKeyval.del("noteable_editorContents");
 } // removeAllAnnotations
 
 function deleteAnnotation (note) {

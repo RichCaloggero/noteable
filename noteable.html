@@ -9,19 +9,29 @@
 <output></output>
 
 <div id="editor" class="container">
+<h1>Noteable</h1>
 
-<p>I should be able to select text from this paragraph.</p>
-
-<p>... or this one ...</p>
-
+<h2 id="background">Background</h2>
+<p>This code shows how one can select and operate on text in live documents via the keyboard and mouse without needing to parse the text. It uses contenteditable and the selection API.</p>
+<h2 id="how-to-use">How to use</h2>
+<p>You can annotate these instructions by selecting text either with the keyboard or mouse. You can add your own text to the annotation. You can change the markers (used to help screen readers distinguish the annotation from the surrounding text), and the highlight (standard HTML emphasis <code>em</code> or <code>strong</code> tags, or no highlighting at all).</p>
+<ol>
+<li>click "enable editing"
 <ul>
-<li id="item1">
-chocolate
-</li><li id="item2">
-vanilla
-</li><li id="item3">
-strawberry
-</li></ul>
+<li>focus should move into the editing widget</li>
+</ul></li>
+<li>select text via standard keyboard methods or by dragging the mouse over the text
+<ul>
+<li>press enter or release mouse button to create the annotation</li>
+</ul></li>
+<li>press alt+enter to assign extra text to the annotation</li>
+<li>if you create multiple annotations, you can move among them via the tab and shift+tab keys</li>
+<li>press the delete key when an annotation has focus to remove it</li>
+<li>check the "enable local persistance" checkbox to have your annotations persist after the browser closes</li>
+<li>click "remove all annotations" to remove all of them</li>
+<li>change the markers or highlight tags via the select lists</li>
+</ol>
+
 </div>
 
 <script src="idbKeyval.umd.js"></script>
