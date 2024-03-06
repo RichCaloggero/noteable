@@ -1,3 +1,5 @@
+// all identifiers beginning with "$" refer to DOM elements
+
 async function noteable (editor) {
 if (not(editor) && not(editor instanceof HTMLElement)) {
 alert("noteable: argument must be an html container element (preferrably div)");
@@ -49,7 +51,6 @@ async function initializeEditor (editor, markers) {
 editor.classList.add("editor");
 editor.dataset.initialContents = editor.innerHTML;
 
-
 if (not(await restoreEditor(idbKeyval, editor))) {
 editor.innerHTML = `<div class="contents">
 ${editor.innerHTML}
@@ -62,32 +63,31 @@ saveEditor(idbKeyval, editor);
 } // if
 
 const editorControls = editor.querySelector(".controls");
-const highlighter = editorControls.querySelector(".highlighter");
-const markerList = initializeMarkerList(editorControls.querySelector(".marker-list"), markers);
-const enableEditing = editorControls.querySelector(".enable-editing")
-const editorContents = editor.querySelector(".contents");
-const enableLocalPersistance = document.querySelector(".enable-local-persistance");
-const removeAnnotations = document.querySelector(".remove-annotations");
+const $highlighter = editorControls.querySelector(".highlighter");
+const $markerList = initializeMarkerList(editorControls.querySelector(".marker-list"), markers);
+const $enableEditing = editorControls.querySelector(".enable-editing")
+const $editorContents = editor.querySelector(".contents");
+const $enableLocalPersistance = document.querySelector(".enable-local-persistance");
+const $removeAnnotations = document.querySelector(".remove-annotations");
 
 
-enableEditing.addEventListener("change", e => enableEditor(editor, e.target.checked));
-enableLocalPersistance.addEventListener("change", e => localPersistance(editor, e.target.checked));
+$enableEditing.addEventListener("change", e => enableEditor(editor, e.target.checked));
+$enableLocalPersistance.addEventListener("change", e => localPersistance(editor, e.target.checked));
 
-removeAnnotations.addEventListener("click", e => {
-removeAllAnnotations(editor);
-});
+$removeAnnotations.addEventListener("click", e => removeAllAnnotations(editor));
 
-highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
-markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
+$highlighter.addEventListener("change", e => changeAllHighlighters(editor, e.target.value));
+$markerList.addEventListener("change", e => changeAllMarkers(editor, markers[e.target.selectedIndex]));
 
-editorContents.addEventListener("keydown", editorKeyboardHandler);
-editorContents.addEventListener("mouseup", editorClickHandler);
+$editorContents.addEventListener("keydown", e => editorKeyboardHandler(e, {editor, markers, $markerList, $highlighter, $editorContents}));
+$editorContents.addEventListener("mouseup", e => editorClickHandler(e, {editor, markers, $markerList, $highlighter, $editorContents}));
 
-enableEditor(editor, enableEditing.checked);
+enableEditor(editor, $enableEditing.checked);
 
 return editor;
+} // initializeEditor
 
-function editorKeyboardHandler (e) {
+function editorKeyboardHandler (e, options) {
 const navigationKeys = ["arrow", "home", "end", "page", "tab",
 "f5", "f6", "alt+d", "control+l", "control+k"
 ];
@@ -101,44 +101,46 @@ if (e.target.matches(".note .text") && keyMatch(key, problemKeys)) e.preventDefa
 return true;
 } // if
 
+const {editor, markers, $highlighter, $markerList, $editorContents} = options;
+
 e.preventDefault();
 if (key === "delete") {
 if (isNote(e.target)) {
 deleteAnnotation(e.target.parentElement);
-editorContents.focus();
+$editorContents.focus();
 } // if
 
 } else if (key === "enter") {
-annotate(editor, document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+annotate(editor, document.getSelection(), $highlighter.value, markers[$markerList.selectedIndex]);
 
 } else if (key === "alt+enter") {
 if (isNote(e.target)) getProperties(e.target.parentElement);
 
 } else if (key === "escape") {
 if (e.target.matches(".note .text")) {
-editorContents.focus();
-} else if(editorContents.hasAttribute("contenteditable")) {
+$editorContents.focus();
+} else if($editorContents.hasAttribute("contenteditable")) {
 enableEditor(editor, false);
-enableEditing.focus();
+$enableEditing.focus();
 } // if
 } // if
 } // editorKeyboardHandler
 
-function editorClickHandler (e) {
+function editorClickHandler (e, options) {
 //console.log(e);
 if (not(e.target.matches(".editor .contents *"))) return true;
 e.preventDefault();
 e.stopImmediatePropagation();
 e.stopPropagation();
 
+const {editor, markers, $highlighter, $markerList} = options;
 if (isNote(e.target) && e.altKey) {
 getProperties(e.target.parentElement);
 }else if (not(isNote(e.target))) {
-annotate(editor, document.getSelection(), highlighter.value, markers[markerList.selectedIndex]);
+annotate(editor, document.getSelection(), $highlighter.value, markers[$markerList.selectedIndex]);
 } // if
 } // editorClickHandler
 
-} // initializeEditor
 
 function annotate (editor, selection, highlight, marker) {
 const note = createAnnotation(selection, highlight, marker);
